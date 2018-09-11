@@ -20,8 +20,13 @@ Press Ctrl+C to exit!
 
 BRIGHTNESS = 0.1
 
+DISPLAY_OFF_HOUR = 21
+DISPLAY_ON_HOUR = 7
+
 ALARM_HOUR = 7
-ALARM_MIN = 0
+ALARM_MIN = 15
+
+BUTTON_DISPLAY_DURATION = 5.0
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hour", type=int,
@@ -34,15 +39,20 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 alarm_status = AlarmStatus.WAITING
 alarm_sound = sa.WaveObject.from_wave_file(os.path.join(__location__, "tomorrow_starts_today.wav"))
 
+last_button_press = time.mktime(time.localtime()) # default to process start, so it displays on startup
+
 sn3218.disable()
 
 def button_callback(channel):
     global alarm_status
+    global last_button_press
+
+    last_button_press = time.mktime(time.localtime())
+    print("Button pressed")
+
     if alarm_status==AlarmStatus.PLAYING:
         alarm_status = AlarmStatus.STOPPED
-        print("Button pressed to stop alarm")
-    else:
-        print("Button pressed (no effect)")
+        print("Button press stopping alarm")
 
 try:
     GPIO.setwarnings(False)
@@ -66,18 +76,21 @@ try:
             alarm_status = AlarmStatus.WAITING
             
         if alarm_status==AlarmStatus.PLAYING and current_sec % 2 == 0:
-            scrollphathd.fill(BRIGHTNESS*2, x=0, y=6, width=17, height=1)
+            scrollphathd.fill(BRIGHTNESS, x=0, y=6, width=17, height=1)
             if not alarm_play_obj.is_playing():
                 alarm_play_obj = alarm_sound.play()
 
         if alarm_status==AlarmStatus.STOPPED and alarm_play_obj:
             alarm_play_obj.stop()
         
-        display_hour = ((current_hour-1) % 12) + 1
-        scrollphathd.write_string(
-            "{:>2}:{:0>2}".format(display_hour, current_min),
-            x=0, y=0, font=font3x5, brightness=BRIGHTNESS
-        )
+        if ((current_hour >= DISPLAY_ON_HOUR and current_hour < DISPLAY_OFF_HOUR) or
+            alarm_status==AlarmStatus.PLAYING or
+            time.mktime(current_time)-last_button_press <= BUTTON_DISPLAY_DURATION):
+            display_hour = ((current_hour-1) % 12) + 1
+            scrollphathd.write_string(
+                "{:>2}:{:0>2}".format(display_hour, current_min),
+                x=0, y=0, font=font3x5, brightness=BRIGHTNESS
+            )
 
         scrollphathd.show()
         time.sleep(0.1)
