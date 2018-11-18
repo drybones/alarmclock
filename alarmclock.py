@@ -3,6 +3,8 @@
 from time import sleep
 import datetime 
 import argparse
+import logging
+import threading
 import simpleaudio as sa
 import scrollphathd
 from scrollphathd.fonts import font3x5
@@ -13,12 +15,6 @@ import os
 from coalesce import coalesce
 from alarmstatus import AlarmStatus
 
-print("""
-Sarah's alarm clock
-Press Ctrl+C to exit!
-
-""")
-
 BRIGHTNESS = 0.1
 
 DISPLAY_OFF_HOUR = 21
@@ -28,6 +24,15 @@ ALARM_HOUR = 7
 ALARM_MIN = 15
 
 BUTTON_DISPLAY_DURATION = 5.0
+
+logger = logging.getLogger("alarmclock")
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+ch = logging.StreamHandler()
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+logger.info("Starting alarm clock. Press ctrl-c to exit.")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hour", type=int,
@@ -44,7 +49,9 @@ offset_time = datetime.time(
     coalesce(args.minute, now.minute),
     coalesce(args.second, now.second)
 )
-offset_delta = now - datetime.datetime.combine(now.date(), offset_time)
+offset_delta = datetime.datetime.combine(now.date(), offset_time) - now
+logger.debug("Offset time is " + str(offset_time))
+logger.debug("Offset delta is " + str(offset_delta))
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 alarm_status = AlarmStatus.WAITING
@@ -53,18 +60,25 @@ alarm_sound = sa.WaveObject.from_wave_file(os.path.join(__location__, "alarm.wav
 sn3218.disable()
 
 def get_localtime():
-    return datetime.datetime.now() - offset_delta
+    return datetime.datetime.now() + offset_delta
 
 def button_callback(channel):
     global alarm_status
     global last_button_press
 
     last_button_press = get_localtime()
-    print("Button pressed")
+    logger.debug("Button pressed")
 
     if alarm_status==AlarmStatus.PLAYING:
         alarm_status = AlarmStatus.STOPPED
-        print("Button press stopping alarm")
+        logger.debug("Button press stopping alarm")
+
+def time_logging_worker():
+    while True:
+        now = get_localtime()
+        if now.second % 10 == 0:
+            logger.info("Clock time is " + now.isoformat(sep=" "))
+        sleep(1)
 
 try:
     GPIO.setwarnings(False)
@@ -74,6 +88,9 @@ try:
 
     last_button_press = get_localtime() # default to process start, so it displays on startup
     alarm_play_obj = None
+
+    logging_thread = threading.Thread(target=time_logging_worker, daemon=True)
+    logging_thread.start()
 
     while True:
         scrollphathd.clear()
