@@ -1,0 +1,51 @@
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Sarah's Alarm Clock</title>
+    </head>
+
+    <body>
+        <h1>Sarah's Alarm Clock</h1>
+
+        <p>Current time is <span id="current_time">[getting current time]</span></p>
+        <p>Alarm <span id="alarm_enabled">[getting ON/OFF]</span>, set for <span id="alarm_time">[getting alarm time]</span></p>
+
+        <h2>Set the alarm</h2>
+        <form method="POST" action="/api/alarm_enabled" id="alarm_onoff_form">
+            <input type="radio" name="alarm_onoff" id="alarm_on" value="ON">
+            <label for="alarm_on">ON</label><br />
+            <input type="radio" name="alarm_onoff" id="alarm_off" value="OFF">
+            <label for="alarm_off">OFF</label>
+        </form>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script>
+
+            $(document).ready(function() {
+                function update_current_time() {
+                    $("#current_time").load("/api/time");
+                }
+                function update_alarm_enabled() {
+                    $.get("/api/alarm_enabled", function(data) {
+                        $("#alarm_enabled").html(data);
+                        if(data=="ON") {
+                            $("#alarm_on").prop("checked", true)
+                        } else {
+                            $("#alarm_off").prop("checked", true)                            
+                        }
+                    });
+                }
+                $("#alarm_time").load("/api/alarm_time");
+                update_current_time();
+                update_alarm_enabled();
+                setInterval(update_current_time, 1000);
+                
+                $("input:radio[name='alarm_onoff']").change(function() {
+                    $("#alarm_onoff_form").submit();
+                    update_alarm_enabled();
+                });
+
+            });
+        </script>
+    </body>
+</html>
