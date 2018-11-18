@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import time
+from time import sleep
+import datetime 
 import argparse
 import simpleaudio as sa
 import scrollphathd
@@ -30,37 +31,35 @@ BUTTON_DISPLAY_DURATION = 5.0
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--hour", type=int,
-                    help="fixed hour override (for testing)")
-parser.add_argument("--min", type=int,
-                    help="fixed minute override (for testing)")
+                    help="hour override (for testing)")
+parser.add_argument("--minute", type=int,
+                    help="minute override (for testing)")
+parser.add_argument("--second", type=int,
+                    help="second override (for testing)")
 args = parser.parse_args()
+
+now = datetime.datetime.now()
+offset_time = datetime.time(
+    coalesce(args.hour, now.hour),
+    coalesce(args.minute, now.minute),
+    coalesce(args.second, now.second)
+)
+offset_delta = now - datetime.datetime.combine(now.date(), offset_time)
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 alarm_status = AlarmStatus.WAITING
-alarm_sound = sa.WaveObject.from_wave_file(os.path.join(__location__, "tomorrow_starts_today.wav"))
+alarm_sound = sa.WaveObject.from_wave_file(os.path.join(__location__, "alarm.wav"))
 
 sn3218.disable()
 
 def get_localtime():
-    global args
-    now = time.localtime()
-    return time.struct_time((
-        now.tm_year, 
-        now.tm_mon, 
-        now.tm_mday, 
-        coalesce(args.hour, now.tm_hour), 
-        coalesce(args.min, now.tm_min), 
-        now.tm_sec, 
-        now.tm_wday, 
-        now.tm_yday, 
-        now.tm_isdst
-    ))
+    return datetime.datetime.now() - offset_delta
 
 def button_callback(channel):
     global alarm_status
     global last_button_press
 
-    last_button_press = time.mktime(get_localtime())
+    last_button_press = get_localtime()
     print("Button pressed")
 
     if alarm_status==AlarmStatus.PLAYING:
@@ -73,7 +72,7 @@ try:
     GPIO.setup(37, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
     GPIO.add_event_detect(37, GPIO.RISING, callback=button_callback, bouncetime=300)
 
-    last_button_press = time.mktime(get_localtime()) # default to process start, so it displays on startup
+    last_button_press = get_localtime() # default to process start, so it displays on startup
     alarm_play_obj = None
 
     while True:
@@ -81,14 +80,14 @@ try:
 
         current_time = get_localtime()
 
-        if current_time.tm_hour==ALARM_HOUR and current_time.tm_min==ALARM_MIN:
+        if current_time.hour==ALARM_HOUR and current_time.minute==ALARM_MIN:
             if alarm_status==AlarmStatus.WAITING:
                 alarm_status = AlarmStatus.PLAYING
                 alarm_play_obj = alarm_sound.play()
         else:
             alarm_status = AlarmStatus.WAITING
             
-        if alarm_status==AlarmStatus.PLAYING and current_time.tm_sec % 2 == 0:
+        if alarm_status==AlarmStatus.PLAYING and current_time.second % 2 == 0:
             scrollphathd.fill(BRIGHTNESS, x=0, y=6, width=17, height=1)
             if not alarm_play_obj.is_playing():
                 alarm_play_obj = alarm_sound.play()
@@ -96,18 +95,18 @@ try:
         if (alarm_status==AlarmStatus.STOPPED or alarm_status==AlarmStatus.WAITING) and alarm_play_obj:
             alarm_play_obj.stop()
         
-        if ((current_time.tm_hour >= DISPLAY_ON_HOUR and current_time.tm_hour < DISPLAY_OFF_HOUR) or
+        if ((current_time.hour >= DISPLAY_ON_HOUR and current_time.hour < DISPLAY_OFF_HOUR) or
             alarm_status==AlarmStatus.PLAYING or
-            time.mktime(current_time)-last_button_press <= BUTTON_DISPLAY_DURATION):
+            (current_time-last_button_press).total_seconds() <= BUTTON_DISPLAY_DURATION):
             # Display the time
-            display_hour = ((current_time.tm_hour-1) % 12) + 1
+            display_hour = ((current_time.hour-1) % 12) + 1
             scrollphathd.write_string(
-                "{:>2}:{:0>2}".format(display_hour, current_time.tm_min),
+                "{:>2}:{:0>2}".format(display_hour, current_time.minute),
                 x=0, y=0, font=font3x5, brightness=BRIGHTNESS
             )
 
         scrollphathd.show()
-        time.sleep(0.1)
+        sleep(0.1)
 
 finally:
     GPIO.cleanup()
