@@ -11,6 +11,7 @@ from scrollphathd.fonts import font3x5
 import RPi.GPIO as GPIO
 import sn3218
 import os
+import flask
 
 from coalesce import coalesce
 from alarmstatus import AlarmStatus
@@ -59,6 +60,25 @@ alarm_sound = sa.WaveObject.from_wave_file(os.path.join(__location__, "alarm.wav
 
 sn3218.disable()
 
+app = flask.Flask(__name__)
+@app.route('/', methods=['GET'])
+
+def home():
+    return '<html>' + \
+        '<head>' + \
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' + \
+        '<title>Sarah\'s Alarm Clock</title>' + \
+        '</head>' + \
+        '<body>' + \
+        '<h1>Sarah\'s Alarm Clock</h1>' + \
+        '<p>Current time is ' + get_localtime().strftime("%H:%M:%S") + '</p>' + \
+        '<p>Alarm set for ' + str(ALARM_HOUR) + ':' + str(ALARM_MIN) + '</p>' + \
+        '</body>' + \
+        '</html>'
+
+def web_worker():
+    app.run(host="sarah.local", debug=False)
+
 def get_localtime():
     return datetime.datetime.now() + offset_delta
 
@@ -91,6 +111,9 @@ try:
 
     logging_thread = threading.Thread(target=time_logging_worker, daemon=True)
     logging_thread.start()
+
+    web_thread = threading.Thread(target=web_worker, daemon=True)
+    web_thread.start()
 
     while True:
         scrollphathd.clear()
