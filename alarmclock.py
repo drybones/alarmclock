@@ -49,7 +49,8 @@ now = datetime.datetime.now()
 offset_time = datetime.time(
     coalesce(args.hour, now.hour),
     coalesce(args.minute, now.minute),
-    coalesce(args.second, now.second)
+    coalesce(args.second, now.second),
+    now.microsecond
 )
 offset_delta = datetime.datetime.combine(now.date(), offset_time) - now
 logger.debug("Offset time is " + str(offset_time))
