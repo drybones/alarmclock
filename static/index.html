@@ -40,9 +40,15 @@
                 update_alarm_enabled();
                 setInterval(update_current_time, 1000);
                 
+                $('#alarm_onoff_form').submit(function(){
+                    $.post($(this).attr('action'), $(this).serialize(), function(result) {
+                        update_alarm_enabled();
+                    });
+                    return false;
+                });
+
                 $("input:radio[name='alarm_onoff']").change(function() {
                     $("#alarm_onoff_form").submit();
-                    update_alarm_enabled();
                 });
 
             });

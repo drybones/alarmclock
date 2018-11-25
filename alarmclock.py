@@ -86,7 +86,7 @@ def set_alarm_enable():
     result = flask.request.form['alarm_onoff']
     logger.debug("Setting ALARM_ENABLED to " + str(result == "ON"))
     ALARM_ENABLED = (result == "ON")
-    return "OK"
+    return ('', 200)
 
 def web_worker():
     app.run(host="sarah.local", debug=False)
